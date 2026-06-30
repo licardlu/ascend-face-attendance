@@ -77,11 +77,15 @@
                 <div id="addResult" class="mt-3"></div>
             </div>
             <div class="col-md-8">
-                <h3>已注册用户</h3>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h3 class="mb-0">已注册用户</h3>
+                    <button class="btn btn-danger btn-sm" id="batchDeleteBtn" onclick="deleteSelectedUsers()" disabled>批量删除</button>
+                </div>
                 <table class="table table-striped">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th><input class="form-check-input" type="checkbox" id="selectAllUsers" onchange="toggleSelectAll(this)"></th>
+                            <th>序号</th>
                             <th>头像</th>
                             <th>姓名</th>
                             <th>注册时间</th>
@@ -137,15 +141,20 @@
                 .then(response => response.json())
                 .then(data => {
                     const tbody = document.getElementById('usersTableBody');
+                    const selectAll = document.getElementById('selectAllUsers');
                     tbody.innerHTML = '';
+                    selectAll.checked = false;
+                    selectAll.indeterminate = false;
                     if (data.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="4" class="text-center">暂无用户</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无用户</td></tr>';
+                        updateBatchDeleteButton();
                         return;
                     }
-                    data.forEach(user => {
+                    data.forEach((user, index) => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td>${user.id}</td>
+                            <td><input class="form-check-input user-checkbox" type="checkbox" value="${user.id}" onchange="updateBatchDeleteButton()"></td>
+                            <td>${index + 1}</td>
                             <td><img src="/uploads/${user.avatar}" style="width:50px;height:50px;object-fit:cover;border-radius:50%;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22%3E%3Ccircle fill=%22%23ddd%22 cx=%2225%22 cy=%2225%22 r=%2225%22/%3E%3C/svg%3E'"></td>
                             <td><span id="name-${user.id}">${user.name || '未命名'}</span> <button class="btn btn-link btn-sm p-0" onclick="editName(${user.id}, '${user.name || ''}')">✏️</button></td>
                             <td>${user.created_at}</td>
@@ -153,8 +162,30 @@
                         `;
                         tbody.appendChild(tr);
                     });
+                    updateBatchDeleteButton();
                 })
                 .catch(err => console.error(err));
+        }
+
+        function getSelectedUserIds() {
+            return Array.from(document.querySelectorAll('.user-checkbox:checked'))
+                .map(checkbox => Number(checkbox.value));
+        }
+
+        function updateBatchDeleteButton() {
+            const checkboxes = Array.from(document.querySelectorAll('.user-checkbox'));
+            const checkedCount = checkboxes.filter(checkbox => checkbox.checked).length;
+            const selectAll = document.getElementById('selectAllUsers');
+            document.getElementById('batchDeleteBtn').disabled = checkedCount === 0;
+            selectAll.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
+            selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+        }
+
+        function toggleSelectAll(source) {
+            document.querySelectorAll('.user-checkbox').forEach(checkbox => {
+                checkbox.checked = source.checked;
+            });
+            updateBatchDeleteButton();
         }
 
         // Add User (Upload)
@@ -270,6 +301,32 @@
                     if (data.success) loadUsers();
                 });
             }
+        }
+
+        function deleteSelectedUsers() {
+            const ids = getSelectedUserIds();
+            if (ids.length === 0) {
+                alert('请选择要删除的用户');
+                return;
+            }
+
+            if (!confirm(`确定要删除选中的 ${ids.length} 个用户吗？`)) {
+                return;
+            }
+
+            fetch('/api/users/batch_delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ids})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadUsers();
+                } else {
+                    alert('错误: ' + data.error);
+                }
+            });
         }
 
         // Edit User Name

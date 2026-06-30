@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 import database
 from ascend_inference import FaceSystem
-from camera import VideoCamera
+from camera import RECOGNITION_THRESHOLD, VideoCamera
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -37,6 +37,21 @@ def get_video_camera():
             except Exception as e:
                 print(f"初始化摄像头失败: {e}")
     return video_camera
+
+
+def find_best_user_match(target_embedding):
+    users = database.get_users()
+    max_sim = -1.0
+    best_match = None
+
+    for u in users:
+        db_emb = np.frombuffer(u['embedding'], dtype=np.float32)
+        sim = np.dot(target_embedding, db_emb) / (np.linalg.norm(target_embedding) * np.linalg.norm(db_emb) + 1e-6)
+        if sim > max_sim:
+            max_sim = sim
+            best_match = u
+
+    return best_match, max_sim
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
@@ -85,9 +100,28 @@ def capture_from_device():
 
     return jsonify({"success": True, "temp_path": filename})
 
+
+@app.route('/api/camera/status', methods=['GET'])
+def camera_status():
+    cam = get_video_camera()
+    if cam is None:
+        return jsonify({
+            "status": "unavailable",
+            "name": None,
+            "attendance": None,
+            "message": "摄像头不可用",
+            "time": database.format_timestamp(database.get_beijing_now()),
+            "similarity": None
+        }), 503
+
+    return jsonify(cam.get_status())
+
 @app.route('/api/users', methods=['POST'])
 def add_user():
-    name = request.form.get('name')
+    name = (request.form.get('name') or '').strip()
+    if not name:
+        return jsonify({"error": "姓名不能为空"}), 400
+
     img = None
 
     # 检查是使用上传文件、抓拍的画面还是 base64 数据
@@ -153,6 +187,17 @@ def delete_user(user_id):
     database.delete_user(user_id)
     return jsonify({"success": True})
 
+
+@app.route('/api/users/batch_delete', methods=['POST'])
+def batch_delete_users():
+    payload = request.get_json(silent=True) or {}
+    user_ids = payload.get('ids', [])
+    if not isinstance(user_ids, list) or len(user_ids) == 0:
+        return jsonify({"error": "请选择要删除的用户"}), 400
+
+    deleted = database.delete_users(user_ids)
+    return jsonify({"success": True, "deleted": deleted})
+
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
     name = request.json.get('name')
@@ -169,9 +214,11 @@ def clockin():
 
     if 'image' in request.files:
         file = request.files['image']
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"clockin_{int(time.time())}.jpg")
-        file.save(filepath)
-        img = cv2.imread(filepath)
+        filename = f"clockin_{int(time.time())}.jpg"
+        saved_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(saved_path)
+        img = cv2.imread(saved_path)
+        filepath = filename
     elif 'image_base64' in request.form:
         data = request.form['image_base64']
         if ',' in data:
@@ -185,6 +232,8 @@ def clockin():
         return jsonify({"error": "无图片数据"}), 400
 
     fs = get_face_system()
+    if fs is None:
+        return jsonify({"error": "人脸系统未初始化"}), 500
     
     faces = fs.detect(img)
     if len(faces) > 0:
@@ -199,30 +248,30 @@ def clockin():
     
     target_embedding = fs.get_embedding(face_img)
     
-    users = database.get_users()
-    max_sim = -1.0
-    best_match = None
-    threshold = 0.5
-    
-    for u in users:
-        db_emb = np.frombuffer(u['embedding'], dtype=np.float32)
-        sim = np.dot(target_embedding, db_emb) / (np.linalg.norm(target_embedding) * np.linalg.norm(db_emb) + 1e-6)
-        if sim > max_sim:
-            max_sim = sim
-            best_match = u
+    best_match, max_sim = find_best_user_match(target_embedding)
 
-    if best_match and max_sim > threshold:
-        database.add_attendance(best_match['id'], 'manual', filepath)
+    if best_match and max_sim > RECOGNITION_THRESHOLD:
+        attendance = database.add_attendance(best_match['id'], 'manual', filepath)
+        attendance_status = 'created' if attendance['created'] else 'already_attended'
+        message = (
+            f"{best_match['name']} Welcome!"
+            if attendance['created']
+            else f"{best_match['name']} 已经考勤"
+        )
         return jsonify({
             "success": True, 
             "match": True, 
             "user": best_match['name'], 
-            "similarity": float(max_sim)
+            "similarity": float(max_sim),
+            "attendance": attendance_status,
+            "message": message,
+            "time": attendance['timestamp']
         })
     else:
         return jsonify({
             "success": True, 
             "match": False,
+            "message": "未注册",
             "similarity": float(max_sim)
         })
 

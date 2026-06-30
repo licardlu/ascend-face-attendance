@@ -37,6 +37,12 @@
             animation: fadeInUp 0.5s ease-out;
         }
 
+        .checkin-time {
+            font-size: 0.95rem;
+            margin-top: 6px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
         @keyframes bounceIn {
             0% { transform: scale(0); opacity: 0; }
             60% { transform: scale(1.1); opacity: 1; }
@@ -78,6 +84,7 @@
                         <div id="device-overlay" class="checkin-overlay">
                             <div class="checkin-icon">✅</div>
                             <div class="checkin-text" id="device-checkin-name">用户名</div>
+                            <div class="checkin-time" id="device-checkin-time"></div>
                         </div>
                     </div>
                 </div>
@@ -120,51 +127,26 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.match) {
-                    alert(`打卡成功: ${data.user}`);
+                    alert(data.message || `打卡成功: ${data.user}`);
                     loadAttendance();
                 } else {
-                    alert('打卡失败或未匹配到用户');
+                    alert(data.message || '打卡失败或未匹配到用户');
                 }
             });
         }
 
-        // Load Attendance
+        let lastCameraStatusSequence = 0;
+
         function loadAttendance() {
             fetch('/api/attendance')
                 .then(response => response.json())
                 .then(data => {
                     const tbody = document.getElementById('attendanceTableBody');
                     tbody.innerHTML = '';
-                    data.forEach(row => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${row.timestamp}</td>
-                            <td>${row.name || '未知'}</td>
-                            <td>${row.type}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                });
-        }
-        
-        // Auto refresh attendance log every 5 seconds (to show device camera check-ins)
-        let lastAttendanceCount = 0;
-        
-        function loadAttendance() {
-            fetch('/api/attendance')
-                .then(response => response.json())
-                .then(data => {
-                    // Check for new records (auto-checkin detection)
-                    if (data.length > lastAttendanceCount && lastAttendanceCount !== 0) {
-                        const newRecord = data[0]; // Assuming sorted DESC
-                        if (newRecord && newRecord.type === 'camera_auto') {
-                             showAnimation('device-overlay', newRecord.name);
-                        }
+                    if (data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-center">暂无考勤记录</td></tr>';
+                        return;
                     }
-                    lastAttendanceCount = data.length;
-                
-                    const tbody = document.getElementById('attendanceTableBody');
-                    tbody.innerHTML = '';
                     data.forEach(row => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
@@ -176,11 +158,44 @@
                     });
                 });
         }
+
+        function pollCameraStatus() {
+            fetch('/api/camera/status')
+                .then(response => response.json())
+                .then(status => {
+                    if (!status.sequence || status.sequence === lastCameraStatusSequence) {
+                        return;
+                    }
+                    lastCameraStatusSequence = status.sequence;
+
+                    if (status.status === 'recognized') {
+                        showAnimation('device-overlay', status.message, status.time, status.attendance);
+                        loadAttendance();
+                    } else if (status.status === 'unregistered') {
+                        showAnimation('device-overlay', '未注册', status.time, 'unregistered');
+                    }
+                })
+                .catch(err => console.error(err));
+        }
         
-        function showAnimation(overlayId, name) {
+        function showAnimation(overlayId, message, time, attendanceStatus) {
             const overlay = document.getElementById(overlayId);
             const text = overlay.querySelector('.checkin-text');
-            text.innerText = "Welcome, " + name + "!";
+            const timeText = document.getElementById('device-checkin-time');
+            const icon = overlay.querySelector('.checkin-icon');
+
+            text.innerText = message;
+            timeText.innerText = time || '';
+            if (attendanceStatus === 'unregistered') {
+                overlay.style.background = 'rgba(220, 53, 69, 0.35)';
+                icon.innerText = '!';
+            } else if (attendanceStatus === 'already_attended') {
+                overlay.style.background = 'rgba(13, 110, 253, 0.35)';
+                icon.innerText = '✓';
+            } else {
+                overlay.style.background = 'rgba(40, 167, 69, 0.3)';
+                icon.innerText = '✓';
+            }
             overlay.style.display = 'flex';
             
             setTimeout(() => {
@@ -188,9 +203,11 @@
             }, 2000);
         }
         
-        setInterval(loadAttendance, 2000); // Faster refresh for animation
+        setInterval(loadAttendance, 5000);
+        setInterval(pollCameraStatus, 1000);
 
         loadAttendance();
+        pollCameraStatus();
     </script>
 </body>
 </html>
