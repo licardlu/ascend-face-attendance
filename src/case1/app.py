@@ -5,6 +5,8 @@ import numpy as np
 import base64
 import time
 from datetime import datetime
+from pathlib import Path
+import re
 import database
 from ascend_inference import FaceSystem
 from camera import RECOGNITION_THRESHOLD, VideoCamera
@@ -16,6 +18,28 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # 全局对象
 face_system = None
 video_camera = None
+
+
+def safe_upload_filename(filename, prefix):
+    stem = Path(filename or '').stem
+    suffix = Path(filename or '').suffix.lower()
+    if suffix not in ['.jpg', '.jpeg', '.png']:
+        suffix = '.jpg'
+
+    safe_stem = re.sub(r'[^A-Za-z0-9_.-]+', '_', stem).strip('._')
+    if not safe_stem:
+        safe_stem = 'image'
+
+    return f"{prefix}_{int(time.time() * 1000)}_{safe_stem}{suffix}"
+
+
+def save_clockin_face_image(face_img, user_id):
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    filename = f"clockin_{user_id}_{int(time.time() * 1000)}.jpg"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if not cv2.imwrite(filepath, face_img):
+        raise ValueError("保存打卡图片失败")
+    return filename
 
 def get_face_system():
     global face_system
@@ -94,7 +118,7 @@ def capture_from_device():
         return jsonify({"error": "抓取画面失败"}), 500
 
     # 保存到临时文件
-    filename = f"capture_{int(time.time())}.jpg"
+    filename = f"capture_{int(time.time() * 1000)}.jpg"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     cv2.imwrite(filepath, frame)
 
@@ -127,12 +151,12 @@ def add_user():
     # 检查是使用上传文件、抓拍的画面还是 base64 数据
     if 'image' in request.files and request.files['image'].filename != '':
         file = request.files['image']
-        filename = f"{int(time.time())}_{file.filename}"
+        filename = safe_upload_filename(file.filename, 'upload')
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         img = cv2.imread(filepath)
     elif 'temp_path' in request.form:
-        temp_filename = request.form.get('temp_path')
+        temp_filename = os.path.basename(request.form.get('temp_path') or '')
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
         if os.path.exists(filepath):
             img = cv2.imread(filepath)
@@ -171,7 +195,7 @@ def add_user():
         embedding_blob = embedding.tobytes()
 
         # 保存头像
-        avatar_filename = f"avatar_{int(time.time())}.jpg"
+        avatar_filename = f"avatar_{int(time.time() * 1000)}.jpg"
         avatar_path = os.path.join(app.config['UPLOAD_FOLDER'], avatar_filename)
         cv2.imwrite(avatar_path, face_img)
 
@@ -200,7 +224,8 @@ def batch_delete_users():
 
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
-    name = request.json.get('name')
+    payload = request.get_json(silent=True) or {}
+    name = (payload.get('name') or '').strip()
     if name:
         database.update_user_name(user_id, name)
         return jsonify({"success": True})
@@ -214,7 +239,7 @@ def clockin():
 
     if 'image' in request.files:
         file = request.files['image']
-        filename = f"clockin_{int(time.time())}.jpg"
+        filename = f"clockin_{int(time.time() * 1000)}.jpg"
         saved_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(saved_path)
         img = cv2.imread(saved_path)
@@ -251,7 +276,10 @@ def clockin():
     best_match, max_sim = find_best_user_match(target_embedding)
 
     if best_match and max_sim > RECOGNITION_THRESHOLD:
-        attendance = database.add_attendance(best_match['id'], 'manual', filepath)
+        attendance = database.add_attendance(best_match['id'], 'manual', None)
+        if attendance['created']:
+            filepath = save_clockin_face_image(face_img, best_match['id'])
+            database.update_attendance_image(attendance['id'], filepath)
         attendance_status = 'created' if attendance['created'] else 'already_attended'
         message = (
             f"{best_match['name']} Welcome!"

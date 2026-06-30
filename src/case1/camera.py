@@ -81,13 +81,15 @@ class VideoCamera(object):
                 return None
 
             frame = self.last_frame.copy()
-            # 检测并绘制人脸框
-            faces = self.face_system.detect(frame)
-            for (x1, y1, x2, y2) in faces:
-                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
 
-            ret, jpeg = cv2.imencode('.jpg', frame)
-            return jpeg.tobytes()
+        faces = self.face_system.detect(frame)
+        for (x1, y1, x2, y2) in faces:
+            cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+
+        ret, jpeg = cv2.imencode('.jpg', frame)
+        if not ret:
+            return None
+        return jpeg.tobytes()
 
     def get_snapshot(self):
         with self.lock:
@@ -164,7 +166,7 @@ class VideoCamera(object):
         attendance = database.add_attendance(user_id, 'camera_auto', None)
         if attendance['created']:
             os.makedirs('uploads', exist_ok=True)
-            filename = f"attendance_{user_id}_{int(time.time())}.jpg"
+            filename = f"attendance_{user_id}_{int(time.time() * 1000)}.jpg"
             filepath = os.path.join('uploads', filename)
             cv2.imwrite(filepath, face_img)
             database.update_attendance_image(attendance['id'], filename)

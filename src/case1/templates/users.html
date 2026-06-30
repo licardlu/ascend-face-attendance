@@ -103,6 +103,15 @@
     <script>
         let currentCameraMode = 'device'; // 默认使用设备摄像头
         let webStream = null;
+        const avatarPlaceholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22%3E%3Ccircle fill=%22%23ddd%22 cx=%2225%22 cy=%2225%22 r=%2225%22/%3E%3C/svg%3E';
+
+        function setAvatarImage(img, avatar) {
+            img.src = avatar ? `/uploads/${encodeURIComponent(avatar)}` : avatarPlaceholder;
+            img.onerror = () => {
+                img.onerror = null;
+                img.src = avatarPlaceholder;
+            };
+        }
 
         // 初始化浏览器摄像头
         function initWebCamera() {
@@ -152,14 +161,51 @@
                     }
                     data.forEach((user, index) => {
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td><input class="form-check-input user-checkbox" type="checkbox" value="${user.id}" onchange="updateBatchDeleteButton()"></td>
-                            <td>${index + 1}</td>
-                            <td><img src="/uploads/${user.avatar}" style="width:50px;height:50px;object-fit:cover;border-radius:50%;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22%3E%3Ccircle fill=%22%23ddd%22 cx=%2225%22 cy=%2225%22 r=%2225%22/%3E%3C/svg%3E'"></td>
-                            <td><span id="name-${user.id}">${user.name || '未命名'}</span> <button class="btn btn-link btn-sm p-0" onclick="editName(${user.id}, '${user.name || ''}')">✏️</button></td>
-                            <td>${user.created_at}</td>
-                            <td><button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})">删除</button></td>
-                        `;
+                        const selectTd = document.createElement('td');
+                        const checkbox = document.createElement('input');
+                        checkbox.className = 'form-check-input user-checkbox';
+                        checkbox.type = 'checkbox';
+                        checkbox.value = user.id;
+                        checkbox.addEventListener('change', updateBatchDeleteButton);
+                        selectTd.appendChild(checkbox);
+
+                        const sequenceTd = document.createElement('td');
+                        sequenceTd.textContent = index + 1;
+
+                        const avatarTd = document.createElement('td');
+                        const avatarImg = document.createElement('img');
+                        avatarImg.style.width = '50px';
+                        avatarImg.style.height = '50px';
+                        avatarImg.style.objectFit = 'cover';
+                        avatarImg.style.borderRadius = '50%';
+                        setAvatarImage(avatarImg, user.avatar);
+                        avatarTd.appendChild(avatarImg);
+
+                        const nameTd = document.createElement('td');
+                        const nameSpan = document.createElement('span');
+                        nameSpan.id = `name-${user.id}`;
+                        nameSpan.textContent = user.name || '未命名';
+                        const editButton = document.createElement('button');
+                        editButton.className = 'btn btn-link btn-sm p-0';
+                        editButton.type = 'button';
+                        editButton.textContent = '编辑';
+                        editButton.addEventListener('click', () => editName(user.id, user.name || ''));
+                        nameTd.appendChild(nameSpan);
+                        nameTd.append(' ');
+                        nameTd.appendChild(editButton);
+
+                        const createdTd = document.createElement('td');
+                        createdTd.textContent = user.created_at || '';
+
+                        const actionTd = document.createElement('td');
+                        const deleteButton = document.createElement('button');
+                        deleteButton.className = 'btn btn-danger btn-sm';
+                        deleteButton.type = 'button';
+                        deleteButton.textContent = '删除';
+                        deleteButton.addEventListener('click', () => deleteUser(user.id));
+                        actionTd.appendChild(deleteButton);
+
+                        tr.append(selectTd, sequenceTd, avatarTd, nameTd, createdTd, actionTd);
                         tbody.appendChild(tr);
                     });
                     updateBatchDeleteButton();
