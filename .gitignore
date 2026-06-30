@@ -1,0 +1,33 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.log
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Runtime data
+src/case1/uploads/
+src/case1/*.db
+src/case1/*.db-*
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Ascend/model artifacts
+*.om
+*.onnx
+*.pb
+*.pt
+*.pth
+*.zip
+models/
+weights/
+
+# IDE/system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
