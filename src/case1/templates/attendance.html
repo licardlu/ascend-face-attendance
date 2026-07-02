@@ -5,110 +5,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>考勤记录</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .camera-box { width: 100%; max-width: 640px; margin: 0 auto; background: #000; min-height: 480px; position: relative; overflow: hidden; border-radius: 8px;}
-        video, img.video-stream { width: 100%; height: auto; display: block; }
-        canvas { display: none; }
-        .status-badge { position: absolute; top: 10px; right: 10px; }
-        
-        /* Success Animation Overlay */
-        .checkin-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(40, 167, 69, 0.3);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            color: white;
-            z-index: 10;
-        }
-        
-        .checkin-icon {
-            font-size: 5rem;
-            animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        
-        .checkin-text {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-top: 10px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-            animation: fadeInUp 0.5s ease-out;
-        }
-
-        .checkin-time {
-            font-size: 0.95rem;
-            margin-top: 6px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }
-
-        @keyframes bounceIn {
-            0% { transform: scale(0); opacity: 0; }
-            60% { transform: scale(1.1); opacity: 1; }
-            100% { transform: scale(1); }
-        }
-        
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translate3d(0, 20px, 0); }
-            to { opacity: 1; transform: translate3d(0, 0, 0); }
-        }
-    </style>
+    <link href="/static/css/app.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <header class="d-flex justify-content-center py-3">
-            <ul class="nav nav-pills">
-                <li class="nav-item"><a href="/" class="nav-link">首页</a></li>
-                <li class="nav-item"><a href="/users_page" class="nav-link">用户管理</a></li>
-                <li class="nav-item"><a href="/attendance_page" class="nav-link active">考勤记录</a></li>
-            </ul>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="topbar-inner">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="brand-mark">AI</div>
+                    <div>
+                        <p class="brand-title">昇腾人脸考勤系统</p>
+                        <p class="brand-subtitle">实时识别与当天考勤记录</p>
+                    </div>
+                </div>
+                <nav class="app-nav">
+                    <a href="/" class="nav-link">首页</a>
+                    <a href="/users_page" class="nav-link">用户管理</a>
+                    <a href="/attendance_page" class="nav-link active">考勤记录</a>
+                </nav>
+            </div>
         </header>
 
-        <div class="row">
-            <div class="col-md-6">
-                <!-- Local Camera (Backend) -->
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>设备摄像头（自动打卡）</span>
-                        <span class="badge bg-danger">实时</span>
-                    </div>
-                    <div class="card-body p-0 text-center bg-black position-relative camera-box">
-                        <img src="/video_feed" class="video-stream" alt="摄像头画面" onerror="this.style.display='none'; document.getElementById('cam-error').style.display='block'">
-                        <div id="cam-error" class="text-white p-5" style="display:none;">
-                            <p>摄像头画面不可用</p>
-                            <small>请检查摄像头是否连接到服务器</small>
-                        </div>
+        <main class="app-main">
+            <section class="page-header">
+                <div>
+                    <div class="eyebrow">REAL-TIME ATTENDANCE</div>
+                    <h1 class="page-title">考勤记录</h1>
+                    <p class="page-description">设备摄像头持续识别已注册人员，未注册人员只提示不入库；同一用户当天只保留第一次考勤时间。</p>
+                </div>
+                <div class="status-strip">
+                    <span class="status-chip"><span class="status-dot"></span>实时识别</span>
+                    <span class="status-chip"><span class="status-dot"></span>北京时间</span>
+                </div>
+            </section>
 
-                        <!-- Overlay for Device Camera -->
-                        <div id="device-overlay" class="checkin-overlay">
-                            <div class="checkin-icon">✅</div>
-                            <div class="checkin-text" id="device-checkin-name">用户名</div>
-                            <div class="checkin-time" id="device-checkin-time"></div>
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <section class="panel">
+                        <div class="panel-header">
+                            <h2 class="panel-title">设备摄像头</h2>
+                            <span class="badge text-bg-danger">实时</span>
                         </div>
-                    </div>
+                        <div class="camera-frame">
+                            <div class="camera-toolbar">
+                                <span class="status-chip"><span class="status-dot"></span>自动考勤</span>
+                                <span class="status-chip">未注册不入库</span>
+                            </div>
+                            <img src="/video_feed" class="video-stream" alt="摄像头画面" onerror="this.style.display='none'; document.getElementById('cam-error').style.display='block'">
+                            <div id="cam-error" class="text-white p-5" style="display:none;">
+                                <p class="mb-1">摄像头画面不可用</p>
+                                <small>请检查摄像头是否连接到服务器</small>
+                            </div>
+
+                            <div id="device-overlay" class="checkin-overlay">
+                                <div class="checkin-icon">✓</div>
+                                <div class="checkin-text" id="device-checkin-name">用户名</div>
+                                <div class="checkin-time" id="device-checkin-time"></div>
+                            </div>
+                        </div>
+                    </section>
                 </div>
 
-            </div>
-
-            <div class="col-md-6">
-                <h3>考勤记录</h3>
-                <button class="btn btn-sm btn-outline-primary mb-2" onclick="loadAttendance()">刷新</button>
-                <div style="height: 600px; overflow-y: auto;">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>时间</th>
-                                <th>用户</th>
-                                <th>头像</th>
-                            </tr>
-                        </thead>
-                        <tbody id="attendanceTableBody">
-                        </tbody>
-                    </table>
+                <div class="col-lg-5">
+                    <section class="panel">
+                        <div class="panel-header">
+                            <h2 class="panel-title">今日考勤</h2>
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadAttendance()">刷新</button>
+                        </div>
+                        <div class="records-panel">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>用户</th>
+                                        <th>抓拍</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendanceTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <script>
@@ -122,29 +102,6 @@
             };
         }
 
-        // Upload Checkin
-        function uploadCheckin() {
-            const fileInput = document.getElementById('uploadImage');
-            if(fileInput.files.length === 0) return;
-            
-            const formData = new FormData();
-            formData.append('image', fileInput.files[0]);
-            
-            fetch('/api/clockin', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.match) {
-                    alert(data.message || `打卡成功: ${data.user}`);
-                    loadAttendance();
-                } else {
-                    alert(data.message || '打卡失败或未匹配到用户');
-                }
-            });
-        }
-
         let lastCameraStatusSequence = 0;
 
         function loadAttendance() {
@@ -154,7 +111,7 @@
                     const tbody = document.getElementById('attendanceTableBody');
                     tbody.innerHTML = '';
                     if (data.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="3" class="text-center">暂无考勤记录</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted">暂无考勤记录</td></tr>';
                         return;
                     }
                     data.forEach(row => {
@@ -165,9 +122,7 @@
                         nameTd.textContent = row.name || '未知';
                         const imageTd = document.createElement('td');
                         const image = document.createElement('img');
-                        image.style.width = '60px';
-                        image.style.height = '60px';
-                        image.style.objectFit = 'cover';
+                        image.className = 'record-img';
                         setAttendanceImage(image, row.image_path);
                         imageTd.appendChild(image);
                         tr.append(timeTd, nameTd, imageTd);
@@ -204,13 +159,13 @@
             text.innerText = message;
             timeText.innerText = time || '';
             if (attendanceStatus === 'unregistered') {
-                overlay.style.background = 'rgba(220, 53, 69, 0.35)';
+                overlay.style.background = 'rgba(220, 38, 38, 0.38)';
                 icon.innerText = '!';
             } else if (attendanceStatus === 'already_attended') {
-                overlay.style.background = 'rgba(13, 110, 253, 0.35)';
+                overlay.style.background = 'rgba(37, 99, 235, 0.38)';
                 icon.innerText = '✓';
             } else {
-                overlay.style.background = 'rgba(40, 167, 69, 0.3)';
+                overlay.style.background = 'rgba(22, 163, 74, 0.34)';
                 icon.innerText = '✓';
             }
             overlay.style.display = 'flex';

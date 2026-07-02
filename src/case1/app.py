@@ -1,15 +1,23 @@
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 import os
-import cv2
 import numpy as np
 import base64
 import time
-from datetime import datetime
 from pathlib import Path
 import re
 import database
-from ascend_inference import FaceSystem
-from camera import RECOGNITION_THRESHOLD, VideoCamera
+
+try:
+    import cv2
+    from ascend_inference import FaceSystem
+    from camera import RECOGNITION_THRESHOLD, VideoCamera
+    HARDWARE_IMPORT_ERROR = None
+except ImportError as exc:
+    cv2 = None
+    FaceSystem = None
+    VideoCamera = None
+    RECOGNITION_THRESHOLD = 0.5
+    HARDWARE_IMPORT_ERROR = f"OpenCV/Ascend 硬件依赖未安装或不可用: {exc}"
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -34,6 +42,9 @@ def safe_upload_filename(filename, prefix):
 
 
 def save_clockin_face_image(face_img, user_id):
+    if cv2 is None:
+        raise ValueError("OpenCV 未安装，无法保存打卡图片")
+
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     filename = f"clockin_{user_id}_{int(time.time() * 1000)}.jpg"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -43,6 +54,10 @@ def save_clockin_face_image(face_img, user_id):
 
 def get_face_system():
     global face_system
+    if FaceSystem is None:
+        print(f"人脸系统依赖不可用: {HARDWARE_IMPORT_ERROR}")
+        return None
+
     if face_system is None:
         try:
             face_system = FaceSystem()
@@ -53,6 +68,10 @@ def get_face_system():
 
 def get_video_camera():
     global video_camera
+    if VideoCamera is None:
+        print(f"摄像头依赖不可用: {HARDWARE_IMPORT_ERROR}")
+        return None
+
     if video_camera is None:
         fs = get_face_system()
         if fs:
@@ -109,6 +128,9 @@ def list_users():
 
 @app.route('/api/camera/capture', methods=['POST'])
 def capture_from_device():
+    if cv2 is None:
+        return jsonify({"error": "OpenCV 未安装，摄像头不可用"}), 503
+
     cam = get_video_camera()
     if cam is None:
         return jsonify({"error": "摄像头不可用"}), 503
@@ -142,6 +164,9 @@ def camera_status():
 
 @app.route('/api/users', methods=['POST'])
 def add_user():
+    if cv2 is None:
+        return jsonify({"error": "OpenCV 未安装，无法处理人脸图片"}), 503
+
     name = (request.form.get('name') or '').strip()
     if not name:
         return jsonify({"error": "姓名不能为空"}), 400
@@ -233,6 +258,9 @@ def update_user(user_id):
 
 @app.route('/api/clockin', methods=['POST'])
 def clockin():
+    if cv2 is None:
+        return jsonify({"error": "OpenCV 未安装，无法处理打卡图片"}), 503
+
     # 手动打卡（上传或客户端摄像头）
     img = None
     filepath = "unknown"
@@ -327,8 +355,11 @@ def video_feed():
 
 if __name__ == '__main__':
     database.init_db()
-    get_face_system()
-    # 启动时初始化摄像头（如果可用）
-    get_video_camera()
+    if HARDWARE_IMPORT_ERROR:
+        print(f"硬件依赖不可用，当前仅支持网页预览和数据库页面: {HARDWARE_IMPORT_ERROR}")
+    else:
+        get_face_system()
+        # 启动时初始化摄像头（如果可用）
+        get_video_camera()
 
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)

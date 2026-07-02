@@ -69,6 +69,28 @@ class FakeFaceSystem:
         return self.embedding
 
 
+class ImportWithoutHardwareDependencyTest(unittest.TestCase):
+    def test_app_imports_when_hardware_libraries_are_missing(self):
+        for module_name in ["app", "cv2", "ascend_inference", "camera", "flask"]:
+            sys.modules.pop(module_name, None)
+
+        sys.modules["flask"] = fake_flask
+        try:
+            imported_app = __import__("app")
+
+            self.assertIsNone(imported_app.FaceSystem)
+            self.assertIsNone(imported_app.VideoCamera)
+            self.assertIn("OpenCV", imported_app.HARDWARE_IMPORT_ERROR)
+            self.assertIsNone(imported_app.get_face_system())
+        finally:
+            for module_name in ["app", "cv2", "ascend_inference", "camera", "flask"]:
+                sys.modules.pop(module_name, None)
+            sys.modules.setdefault("cv2", fake_cv2)
+            sys.modules.setdefault("ascend_inference", fake_ascend)
+            sys.modules.setdefault("flask", fake_flask)
+            __import__("app")
+
+
 class AppBehaviorTest(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory()

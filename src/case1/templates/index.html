@@ -5,31 +5,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>人脸考勤系统</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { padding-top: 20px; }
-        .nav-link { font-size: 1.2rem; }
-    </style>
+    <link href="/static/css/app.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <header class="d-flex justify-content-center py-3">
-            <ul class="nav nav-pills">
-                <li class="nav-item"><a href="/" class="nav-link active" aria-current="page">首页</a></li>
-                <li class="nav-item"><a href="/users_page" class="nav-link">用户管理</a></li>
-                <li class="nav-item"><a href="/attendance_page" class="nav-link">考勤记录</a></li>
-            </ul>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="topbar-inner">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="brand-mark">AI</div>
+                    <div>
+                        <p class="brand-title">昇腾人脸考勤系统</p>
+                        <p class="brand-subtitle">Ascend 310B Face Attendance</p>
+                    </div>
+                </div>
+                <nav class="app-nav">
+                    <a href="/" class="nav-link active" aria-current="page">首页</a>
+                    <a href="/users_page" class="nav-link">用户管理</a>
+                    <a href="/attendance_page" class="nav-link">考勤记录</a>
+                </nav>
+            </div>
         </header>
 
-        <div class="p-5 mb-4 bg-light rounded-3 text-center">
-            <div class="container-fluid py-5">
-                <h1 class="display-5 fw-bold">昇腾人脸考勤系统</h1>
-                <p class="col-md-8 fs-4 mx-auto">基于昇腾 310B NPU 的高性能人脸识别系统</p>
-                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-                    <a href="/attendance_page" class="btn btn-primary btn-lg px-4 gap-3">查看考勤</a>
-                    <a href="/users_page" class="btn btn-outline-secondary btn-lg px-4">管理用户</a>
+        <main class="app-main">
+            <section class="panel hero-panel">
+                <div>
+                    <div class="eyebrow">COURSE DESIGN PROJECT</div>
+                    <h1 class="page-title">面向实验室与课堂场景的人脸考勤终端</h1>
+                    <p class="page-description">
+                        系统基于昇腾 310B NPU 完成人脸检测、特征识别、注册管理和当天首次考勤记录，适合课程设计演示与板端部署。
+                    </p>
+                    <div class="hero-actions">
+                        <a href="/attendance_page" class="btn btn-primary btn-lg px-4">进入考勤</a>
+                        <a href="/users_page" class="btn btn-outline-primary btn-lg px-4">管理用户</a>
+                    </div>
                 </div>
-            </div>
-        </div>
+                <div class="system-card">
+                    <small>运行流程</small>
+                    <h2 class="mt-2 mb-3">注册人脸 -> 自动识别 -> 首次打卡</h2>
+                    <div class="status-strip">
+                        <span class="status-chip"><span class="status-dot"></span>北京时间</span>
+                        <span class="status-chip"><span class="status-dot"></span>去重考勤</span>
+                        <span class="status-chip"><span class="status-dot"></span>未注册提示</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="metric-grid">
+                <a href="/users_page" class="metric-card text-decoration-none text-reset">
+                    <div class="metric-label">用户管理</div>
+                    <div class="metric-value">注册与维护</div>
+                    <div class="metric-note">上传照片或摄像头抓拍，支持批量删除错误注册记录。</div>
+                </a>
+                <a href="/attendance_page" class="metric-card text-decoration-none text-reset">
+                    <div class="metric-label">实时考勤</div>
+                    <div class="metric-value">摄像头识别</div>
+                    <div class="metric-note">已注册人员显示 Welcome，重复识别显示已经考勤。</div>
+                </a>
+                <div class="metric-card">
+                    <div class="metric-label">记录规则</div>
+                    <div class="metric-value">当天首次</div>
+                    <div class="metric-note">同一用户每天只保留第一次打卡时间，便于查看和统计。</div>
+                </div>
+            </section>
+        </main>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
